@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import React, {useState, useEffect} from 'react';
 import {
   SafeAreaView,
@@ -8,6 +9,7 @@ import {
   ImageBackground,
   View,
   Image,
+  PermissionsAndroid,
   TouchableOpacity,
 } from 'react-native';
 
@@ -19,11 +21,16 @@ import TrackPlayer, {RepeatMode} from 'react-native-track-player';
 import Slider from '@react-native-community/slider';
 import {useProgress} from 'react-native-track-player/lib/hooks';
 import AppPlayer from './utils/AppPlayer'
+import Database from './utils/database'
+import RNFS from 'react-native-fs';
+import {dirAudio, dirPictures} from './utils/dirStorage'
+
 const Dev_Height = Dimensions.get('window').height;
 const Dev_Width = Dimensions.get('window').width;
 
-const App = ({selectedTrack, setSelectedTrack}) => {
+const TrackPlayerView = ({selectedTrack, setSelectedTrack}) => {
 
+  console.log("Inside TrackPlayerView", selectedTrack)
   const track = selectedTrack;
   const trackPlayerInit = async () => {
     await TrackPlayer.updateOptions({
@@ -31,15 +38,6 @@ const App = ({selectedTrack, setSelectedTrack}) => {
       // Media controls capabilities
   });
     await TrackPlayer.setupPlayer();
-    // await TrackPlayer.updateOptions({
-      // stopWithApp: false,
-      // capabilities: [
-      //   TrackPlayer.CAPABILITY_PLAY,
-      //   TrackPlayer.CAPABILITY_PAUSE,
-      //   TrackPlayer.CAPABILITY_JUMP_FORWARD,
-      //   TrackPlayer.CAPABILITY_JUMP_BACKWARD,
-      // ],
-    // });
     await TrackPlayer.add(track);
     return true;
   };
@@ -153,10 +151,117 @@ const App = ({selectedTrack, setSelectedTrack}) => {
     setSelectedTrack(null);
   }
 
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [downloadprogress, setDownloadProgress] = useState(0);
+
+  const insertRecord = (record) => new Promise((resolve) => {
+    Database.insertRecord(record, res => {
+      resolve(res)
+    })
+  })
+
+  const downLoadFile = async () => {
+    try {
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+      ]);
+    } catch (err) {
+      console.warn(err);
+    }
+    const readGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE); 
+    const writeGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE);
+    if(!readGranted || !writeGranted) {
+      console.log('Read and write permissions have not been granted');
+      return;
+    }
+
+    setIsDownloading(true);
+    RNFS.mkdir(dirAudio).then((res) => {
+      console.log(" RNFS.mkdir Response \n", res);
+      const fileName1 = track.url.split('/');
+      const audioPath = dirAudio + '/' + fileName1.pop();
+      RNFS.downloadFile({
+        fromUrl: track.url,
+        toFile: audioPath,
+        progressDivider: 10,
+        background: true, 
+        discretionary: true, 
+        cacheable: true, 
+        begin: (res) => {
+          console.log("Response begin ===\n\n");
+          console.log(res);
+        },
+        progress: (res) => {
+         //here you can calculate your progress for file download
+          console.log("Response written ===\n\n");
+          let progressPercent = (res.bytesWritten / res.contentLength)*100; // to calculate in percentage
+          console.log("\n\nprogress===",progressPercent)
+          setDownloadProgress(progressPercent/2)
+          console.log(res);
+        }
+      }).promise.then(res => {
+          console.log("res for saving file===", res);
+          // return RNFS.readFile(downloadfilePath, "base64");
+
+
+
+          RNFS.mkdir(dirPictures).then((res) => {
+            console.log(" RNFS.mkdir Response \n", res);
+      
+            const fileName2 = track.img.split('/');
+            const gifPath = dirPictures + '/' + fileName2.pop();
+            RNFS.downloadFile({
+              fromUrl: track.img,
+              toFile: gifPath,
+              progressDivider: 10,
+              background: true, 
+              discretionary: true, 
+              cacheable: true, 
+              begin: (res) => {
+                console.log("Response begin ===\n\n");
+                console.log(res);
+              },
+              progress: (res) => {
+               //here you can calculate your progress for file download
+                console.log("Response written ===\n\n");
+                let progressPercent = (res.bytesWritten / res.contentLength)*100; // to calculate in percentage
+                console.log("\n\nprogress===",progressPercent)
+                // this.setState({ progress: progressPercent.toString() });
+                setDownloadProgress((progressPercent/2) + 50)
+              }
+            }).promise.then(async res => {
+                console.log("res for saving file===", res);
+                // return RNFS.readFile(downloadfilePath, "base64");
+                const record = {id: track.id, title: track.title, url: 'file://' + audioPath,img: 'file://' + gifPath, favorite: track.isFavorite};
+                const rowsRes = await insertRecord(record);
+
+                console.log("inserted", rowsRes, record)
+                alert("Download completed")
+
+                setIsDownloading(false)
+            }).catch(err => {
+              console.log(err)
+              setIsDownloading(false)
+            })
+          }).catch(err => {
+            console.log(err)
+            setIsDownloading(false)
+          })
+      }).catch(err => {
+        console.log(err)
+        setIsDownloading(false)
+      })
+    }).catch(err => {
+      console.log(err)
+      setIsDownloading(false)
+    })
+  }
+
   return (
     <SafeAreaView style={styles.contanier}>
       <ImageBackground
-        source={require('./asserts/waterfall.gif')}
+        source={{uri: track.img}}
         style={styles.background}>
         <View style={styles.mainbar}>
           <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
@@ -166,12 +271,13 @@ const App = ({selectedTrack, setSelectedTrack}) => {
               size={40} 
             />
           </TouchableOpacity>
-          <MaterialIcons
-            name="file-download"
-            size={40}
-            style={styles.downLoadIcon}
-            color="#e6e6e6"
-          />
+          <TouchableOpacity style={styles.downLoadIcon} onPress={!isDownloading ? downLoadFile: null}>
+          {!isDownloading ?(<MaterialIcons
+              name="file-download"
+              size={40}
+              color="#e6e6e6"
+            />): <Text styles={{fontSize: 10}}>{Math.round(downloadprogress)}%</Text>}
+          </TouchableOpacity>
         </View>
         <View style={styles.trackActions}>
         <View style={styles.name_of_song_View}>
@@ -266,6 +372,7 @@ const styles = StyleSheet.create({
   contanier: {
     height: Dev_Height,
     width: Dev_Width,
+    position: 'absolute'
   },
   mainbar: {
     height: '10%',
@@ -385,4 +492,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default App;
+export default TrackPlayerView;

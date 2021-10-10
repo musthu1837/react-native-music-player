@@ -1,19 +1,23 @@
-import React, { useState } from 'react';
+/* eslint-disable no-console */
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SectionList,
   SafeAreaView,
   ImageBackground,
   FlatList,
   TouchableOpacity,
+  PermissionsAndroid,
 } from 'react-native';
 
 import MaterialIcons from 'react-native-vector-icons/dist/MaterialIcons';
 import AntDesign from 'react-native-vector-icons/dist/AntDesign';
 import AppPlayer from './utils/AppPlayer'
+import Database from './utils/database'
 import TrackPlayer from './TrackPlayer';
+import RNFS from 'react-native-fs';
+import {dirAudio, dirPictures} from './utils/dirStorage'
 
 const CategoryListItem = ({ item, selectedCategory, setSelectedCategory }) => {
   return (
@@ -23,10 +27,135 @@ const CategoryListItem = ({ item, selectedCategory, setSelectedCategory }) => {
   );
 };
 
-const ListItem = ({ item, setSelectedTrack }) => {
+const ListItem = ({ track, setSelectedTrack }) => {
+
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [downloadprogress, setDownloadProgress] = useState(0);
+  const [item, setItem] = useState(track);
+  const insertRecord = (record) => new Promise((resolve) => {
+    Database.insertRecord(record, res => {
+      resolve(res)
+    })
+  })
+
+
+
+  const getRecord = (id) => new Promise((resolve) => {
+    Database.getTrack(id, res => {
+      resolve(res)
+    })  
+  })
+
+  useEffect(() => {
+    async function fetchData() {
+      const dbTrack = await getRecord(item.id);
+      console.log("tracktracktracktracktracktracktracktracktrack:",dbTrack)
+      setItem({...item, ...dbTrack, fromDb: dbTrack && dbTrack.data && dbTrack.data.length})
+    }
+    fetchData();
+    
+  }, [isDownloading])
+  
+  const downLoadFile = async () => {
+    try {
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+      ]);
+    } catch (err) {
+      console.warn(err);
+    }
+    const readGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE); 
+    const writeGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE);
+    if(!readGranted || !writeGranted) {
+      console.log('Read and write permissions have not been granted');
+      return;
+    }
+
+    setIsDownloading(true);
+    RNFS.mkdir(dirAudio).then((res) => {
+      console.log(" RNFS.mkdir Response \n", res);
+      const fileName1 = item.url.split('/');
+      const audioPath = dirAudio + '/' + fileName1.pop();
+      RNFS.downloadFile({
+        fromUrl: item.url,
+        toFile: audioPath,
+        progressDivider: 10,
+        background: true, 
+        discretionary: true, 
+        cacheable: true, 
+        begin: (res) => {
+          console.log("Response begin ===\n\n");
+          console.log(res);
+        },
+        progress: (res) => {
+         //here you can calculate your progress for file download
+          console.log("Response written ===\n\n");
+          let progressPercent = (res.bytesWritten / res.contentLength)*100; // to calculate in percentage
+          console.log("\n\nprogress===",progressPercent)
+          setDownloadProgress(progressPercent/2)
+          console.log(res);
+        }
+      }).promise.then(res => {
+          console.log("res for saving file===", res);
+          // return RNFS.readFile(downloadfilePath, "base64");
+
+
+
+          RNFS.mkdir(dirPictures).then((res) => {
+            console.log(" RNFS.mkdir Response \n", res);
+      
+            const fileName2 = item.img.split('/');
+            const gifPath = dirPictures + '/' + fileName2.pop();
+            RNFS.downloadFile({
+              fromUrl: item.img,
+              toFile: gifPath,
+              progressDivider: 10,
+              background: true, 
+              discretionary: true, 
+              cacheable: true, 
+              begin: (res) => {
+                console.log("Response begin ===\n\n");
+                console.log(res);
+              },
+              progress: (res) => {
+               //here you can calculate your progress for file download
+                console.log("Response written ===\n\n");
+                let progressPercent = (res.bytesWritten / res.contentLength)*100; // to calculate in percentage
+                console.log("\n\nprogress===",progressPercent)
+                // this.setState({ progress: progressPercent.toString() });
+                setDownloadProgress((progressPercent/2) + 50)
+              }
+            }).promise.then(async res => {
+                console.log("res for saving file===", res);
+                // return RNFS.readFile(downloadfilePath, "base64");
+                const record = {id: item.id, title: item.title, url: 'file://' +  audioPath,img: 'file://' + gifPath, favorite: item.isFavorite};
+                const rowsRes = await insertRecord(record);
+
+                console.log("inserted", rowsRes, record)
+                alert("Download completed")
+
+                setIsDownloading(false)
+            }).catch(err => {
+              console.log(err)
+              setIsDownloading(false)
+            })
+          }).catch(err => {
+            console.log(err)
+            setIsDownloading(false)
+          })
+      }).catch(err => {
+        console.log(err)
+        setIsDownloading(false)
+      })
+    }).catch(err => {
+      console.log(err)
+      setIsDownloading(false)
+    })
+  }
     return (
         <TouchableOpacity style={styles.itemImage} onPress={() => setSelectedTrack(item)}>
-            <ImageBackground style={{height: '100%', width: '100%'}} imageStyle={styles.itemImageBackground} source={require('./asserts/waterfall.gif')}>
+            <ImageBackground style={{height: '100%', width: '100%'}} imageStyle={styles.itemImageBackground} source={{uri: item.img}}>
                 <View style={styles.itemHeader}>
                     <View style={styles.itemHeaderDuration}>
                         <Text style={styles.itemHeaderDurationText}>
@@ -51,12 +180,19 @@ const ListItem = ({ item, setSelectedTrack }) => {
                         />
                     )
                     }
-                    <MaterialIcons
-                        name="file-download"
-                        size={24}
-                        style={styles.downLoadIcon}
-                        color="#e6e6e6"
-                    />
+                    {!item.fromDb ? <TouchableOpacity style={styles.downLoadIcon} onPress={!isDownloading ? downLoadFile: null}>
+                      {
+                        !isDownloading?(
+                          <MaterialIcons
+                          name="file-download"
+                          size={24}
+                          
+                          color="#e6e6e6"
+                      />
+                        ): <Text styles={{fontSize: 10}}>{Math.round(downloadprogress)}%</Text>
+                      }
+
+                    </TouchableOpacity>: false}
                     </View>
                 </View>
                 <View style={styles.itemTitleContainer}>
@@ -74,9 +210,19 @@ export default () => {
     const [selectedTrack, setSelectedTrack] = useState(null);
 
     const selectedCategoryData = SECTIONS[0].data.filter(cat => cat.key === selectedCategory);
+
+  useEffect( () => {
+    new Promise((resolve) => {
+      Database.initDB(res => {
+        resolve(res)
+      })
+    }).then(res => {
+      console.log(res)
+    })
+  }, [])
   return (
       
-    !selectedTrack ? <View style={styles.container}>
+    <><View style={styles.container}>
       <SafeAreaView style={{ flex: 1, marginLeft: '3%',}}>
             <View style={styles.mainbar}>
                 <AntDesign 
@@ -99,15 +245,15 @@ export default () => {
                 <FlatList
                 horizontal
                 data={selectedCategoryData[0].tracks}
-                renderItem={({ item }) => <ListItem setSelectedTrack={setSelectedTrack} item={item} />}
+                renderItem={({ item }) => <ListItem setSelectedTrack={setSelectedTrack} track={item} />}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{marginTop: 0}}
                 />
             </View>
       </SafeAreaView>
-    </View>:(
-        <TrackPlayer selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack}/>
-    )
+    </View>
+        {selectedTrack ? <TrackPlayer selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack}/>: false}</>
+    
   );
 };
 
@@ -122,25 +268,25 @@ const SECTIONS = [
         tracks: [
             {
                 id: '1',
-                url: 'https://www.chosic.com/wp-content/uploads/2021/07/The-Epic-Hero-Epic-Cinematic-Keys-of-Moon-Music.mp3',
+                url: 'https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3',
                 title: 'The Waterfall',
                 album: 'My Album',
                 artist: 'Rohan Bhatia',
                 artwork: 'https://picsum.photos/100',
-                duration: 148,
+                duration: 142,
                 isFavorite: true,
-                img: './asserts/waterfall.gif'
+                img: "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Scenes.gif"
             },
             {
                 id: '2',
-                url: 'https://www.chosic.com/wp-content/uploads/2021/07/The-Epic-Hero-Epic-Cinematic-Keys-of-Moon-Music.mp3',
+                url: 'https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3',
                 title: 'The Waterfall',
                 album: 'My Album',
                 artist: 'Rohan Bhatia',
                 artwork: 'https://picsum.photos/100',
-                duration: 148,
+                duration: 142,
                 isFavorite: false,
-                img: './asserts/waterfall.gif'
+                img: "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Scenes.gif"
 
             }
         ]
