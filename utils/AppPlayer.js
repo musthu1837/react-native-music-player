@@ -42,6 +42,14 @@ static secondsToHHMMSS = (seconds) => {
     const scnds = s > 0 ? (s < 10 ? `0${s}` : s) : '00';
     return `${hrs}${mins}${scnds}`;
 };
+
+static fromMMSSToSeconds = (mmss) => {
+    // credits - https://stackoverflow.com/a/37096512
+    const timeComponent  = mmss && mmss.split(":");
+    const m = isNaN(timeComponent[0]) ? 0: Number(timeComponent[0]);
+    const s = isNaN(timeComponent[1]) ? 0: Number(timeComponent[1]);
+    return (m*60) + s;
+};
 }
 
 export default AppPlayer;

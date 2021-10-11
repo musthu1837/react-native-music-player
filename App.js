@@ -9,6 +9,7 @@ import {
   FlatList,
   TouchableOpacity,
   PermissionsAndroid,
+  Modal
 } from 'react-native';
 
 import MaterialIcons from 'react-native-vector-icons/dist/MaterialIcons';
@@ -19,16 +20,18 @@ import TrackPlayer from './TrackPlayer';
 import RNFS from 'react-native-fs';
 import {dirAudio, dirPictures} from './utils/dirStorage'
 
-const CategoryListItem = ({ item, selectedCategory, setSelectedCategory }) => {
+const CategoryListItem = ({ item, index, popStack, fetchNewCategory}) => {
   return (
-    <TouchableOpacity onPress={() => setSelectedCategory(item.key)} style={item.key === selectedCategory? {...styles.item, ...{backgroundColor: '#33cccc'}}: styles.item}>
-      <Text style={styles.itemText}>{item.text}</Text>
+    // <TouchableOpacity onPress={() => setSelectedCategory(item.key)} >
+    <TouchableOpacity onPress={index === 0?popStack:() => fetchNewCategory(item)}  style={index === 0? {...styles.item, ...{backgroundColor: '#33cccc'}}: styles.item}>
+      <Text style={styles.itemText}>{item.category_name}</Text>
     </TouchableOpacity>
   );
 };
 
-const ListItem = ({ track, setSelectedTrack }) => {
+const ListItem = ({ track, setSelectedTrack , selectedTrack}) => {
 
+  console.log("track::::::::::::::::::::::", track)
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloadprogress, setDownloadProgress] = useState(0);
   const [item, setItem] = useState(track);
@@ -50,7 +53,8 @@ const ListItem = ({ track, setSelectedTrack }) => {
     async function fetchData() {
       const dbTrack = await getRecord(item.id);
       console.log("tracktracktracktracktracktracktracktracktrack:",dbTrack)
-      setItem({...item, ...dbTrack, fromDb: dbTrack && dbTrack.data && dbTrack.data.length})
+      const track =  dbTrack && dbTrack.data && dbTrack.data.length ? dbTrack.data[0]: {};
+      setItem({...item, ...track, fromDb: dbTrack && dbTrack.data && dbTrack.data.length})
     }
     fetchData();
     
@@ -129,7 +133,7 @@ const ListItem = ({ track, setSelectedTrack }) => {
             }).promise.then(async res => {
                 console.log("res for saving file===", res);
                 // return RNFS.readFile(downloadfilePath, "base64");
-                const record = {id: item.id, title: item.title, url: 'file://' +  audioPath,img: 'file://' + gifPath, favorite: item.isFavorite};
+                let record = {id: item.id, title: item.title, url: 'file://' +  audioPath,img: 'file://' + gifPath, favorite: item.isFavorite};
                 const rowsRes = await insertRecord(record);
 
                 console.log("inserted", rowsRes, record)
@@ -139,27 +143,47 @@ const ListItem = ({ track, setSelectedTrack }) => {
             }).catch(err => {
               console.log(err)
               setIsDownloading(false)
+              setDownloadProgress(0)
+              alert("Download faild")
             })
           }).catch(err => {
             console.log(err)
             setIsDownloading(false)
+            setDownloadProgress(0)
+            alert("Download faild")
           })
       }).catch(err => {
         console.log(err)
         setIsDownloading(false)
+        setDownloadProgress(0)
+        alert("Download faild")
       })
     }).catch(err => {
       console.log(err)
       setIsDownloading(false)
+      setDownloadProgress(0)
+      alert("Download faild")
     })
   }
+
+  
     return (
         <TouchableOpacity style={styles.itemImage} onPress={() => setSelectedTrack(item)}>
-            <ImageBackground style={{height: '100%', width: '100%'}} imageStyle={styles.itemImageBackground} source={{uri: item.img}}>
+                      <Modal visible={selectedTrack && selectedTrack.id === item.id}>
+                      <TrackPlayer 
+                        selectedTrack={selectedTrack} 
+                        setSelectedTrack={setSelectedTrack}
+                        setIsDownloading={setIsDownloading}
+                        isDownloading={isDownloading}
+                        downLoadFile={downLoadFile}
+                        downloadprogress={downloadprogress}
+                      />
+            </Modal>
+            <ImageBackground style={{height: '100%', width: '100%'}} imageStyle={styles.itemImageBackground} source={{uri: item.bg_image}}>
                 <View style={styles.itemHeader}>
                     <View style={styles.itemHeaderDuration}>
                         <Text style={styles.itemHeaderDurationText}>
-                            {AppPlayer.secondsToHHMMSS(Math.floor(item.duration || 0))} MIN
+                            {AppPlayer.secondsToHHMMSS(Math.floor(item.scene_duration || 0))} MIN
                         </Text>
                     </View>
                     <View style={styles.itemHeaderActions}>
@@ -206,24 +230,124 @@ const ListItem = ({ track, setSelectedTrack }) => {
   };
 
 export default () => {
-    const [selectedCategory, setSelectedCategory] = useState('1');
+    const [categoryStack, setCategoryStack] = useState([]);
     const [selectedTrack, setSelectedTrack] = useState(null);
 
-    const selectedCategoryData = SECTIONS[0].data.filter(cat => cat.key === selectedCategory);
+  const fetchNewCategory = (item) => {
+    const res = {
+      "code": 200,
+      "message": "successful",
+      "total_records": 1,
+      "total_pages": 1,
+      "page": 1,
+      "data": {
+          "categories": [
+              {
+                  "category_id": "1",
+                  "category_name": item.category_name + 1,
+                  "parent_category_id": item.category_id,
+              },
+              {
+                  "category_id": "2",
+                  "category_name": item.category_name + 2,
+                  "parent_category_id": item.category_id,
+              }
+          ],
+          "records": [{
+                "scene_id": item.category_name + 1,
+                "title": "The Waterfall",
+                "description": "Description for scene record male1",
+                "bg_image": "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Scenes.gif",
+                "scene": "https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3",
+                "scene_download": "https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3",
+                "scene_duration": "149"
+            },{
+              "scene_id": item.category_name + 2,
+              "title": "The Waterfall",
+              "description": "Description for scene record male1",
+              "bg_image": "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Scenes.gif",
+              "scene": "https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3",
+              "scene_download": "https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3",
+              "scene_duration": "149"
+          }
+          ]
+      }
+    }
 
+    res.data.parent = {
+      "category_id": item.category_id,
+      "category_name": item.category_name,
+    }
+
+    categoryStack.push(res.data);
+    setCategoryStack([...categoryStack]);
+  }
+
+  const getTopOfTheStack = () => {
+    const length = categoryStack.length;
+    return length ? categoryStack[length - 1] :{}
+  }
+
+  const popStack = () => {
+    categoryStack.pop();
+    console.log("categoryStack", categoryStack)
+    setCategoryStack([...categoryStack])
+  }
+  const stackTop = getTopOfTheStack();
+
+  console.log("stackTop.records:", stackTop.records)
   useEffect( () => {
     new Promise((resolve) => {
       Database.initDB(res => {
         resolve(res)
       })
-    }).then(res => {
-      console.log(res)
+    }).then(res1 => {
+      const res = {
+        "code": 200,
+        "message": "successful",
+        "total_records": 1,
+        "total_pages": 1,
+        "page": 1,
+        "data": {
+            "categories": [
+                {
+                    "category_id": "1",
+                    "category_name": "Beach",
+                    "parent_category_id": "0",
+                },
+                {
+                    "category_id": "4",
+                    "category_name": "Mountains",
+                    "parent_category_id": "0",
+                }
+            ],
+            "records": [
+                {
+                    "scene_id": "1",
+                    "title": "scene record1",
+                    "description": "Description for scene record male1",
+                    "bg_image": "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Meditation-Man.gif",
+                    "scene": "http://booking.techcarrot.ae/wp-content/uploads/2021/10/test-audio.mp3",
+                    "scene_download": "http://booking.techcarrot.ae/wp-content/uploads/2021/10/test-audio.mp3",
+                    "scene_duration": "32"
+                }
+            ]
+        }
+      }
+
+      res.data.parent = {
+        "category_id": 0,
+        "category_name": "All",
+      }
+      categoryStack.push(res.data);
+      setCategoryStack([...categoryStack]);
     })
   }, [])
   return (
       
     <><View style={styles.container}>
       <SafeAreaView style={{ flex: 1, marginLeft: '3%',}}>
+
             <View style={styles.mainbar}>
                 <AntDesign 
                     name="arrowleft" 
@@ -231,90 +355,32 @@ export default () => {
                     size={35} 
                     style={styles.closeIcon}
                 />
-                <Text style={styles.menubarTitle}>{SECTIONS[0].title}</Text>
+                <Text style={styles.menubarTitle}>Meditation</Text>
             </View>
             <View>
                 <FlatList
                 horizontal
-                data={SECTIONS[0].data}
-                renderItem={({ item }) => <CategoryListItem item={item} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}/>}
+                data={stackTop.parent && stackTop.categories ? [stackTop.parent, ...stackTop.categories]: []}
+                renderItem={({ item, index }) => <CategoryListItem fetchNewCategory={fetchNewCategory} item={item} index={index} popStack={popStack}/>}
                 showsHorizontalScrollIndicator={false}
                 />
             </View>
             <View style={{ height: '60%', padding: 10, paddingRight: 0, paddingLeft: 0 }}>
                 <FlatList
                 horizontal
-                data={selectedCategoryData[0].tracks}
-                renderItem={({ item }) => <ListItem setSelectedTrack={setSelectedTrack} track={item} />}
+                data={stackTop.records ? [...stackTop.records]: []}
+                renderItem={({  item, index }) => <ListItem selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack} track={item} />}
                 showsHorizontalScrollIndicator={false}
+                keyExtractor = {(item) => item.scene_id}
                 contentContainerStyle={{marginTop: 0}}
                 />
             </View>
       </SafeAreaView>
     </View>
-        {selectedTrack ? <TrackPlayer selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack}/>: false}</>
+        </>
     
   );
 };
-
-const SECTIONS = [
-  {
-    title: 'Meditation',
-    data: [
-      {
-        key: '1',
-        text: 'All',
-        uri: 'https://picsum.photos/id/1/200',
-        tracks: [
-            {
-                id: '1',
-                url: 'https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3',
-                title: 'The Waterfall',
-                album: 'My Album',
-                artist: 'Rohan Bhatia',
-                artwork: 'https://picsum.photos/100',
-                duration: 142,
-                isFavorite: true,
-                img: "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Scenes.gif"
-            },
-            {
-                id: '2',
-                url: 'https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3',
-                title: 'The Waterfall',
-                album: 'My Album',
-                artist: 'Rohan Bhatia',
-                artwork: 'https://picsum.photos/100',
-                duration: 142,
-                isFavorite: false,
-                img: "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Scenes.gif"
-
-            }
-        ]
-      },
-      {
-        key: '2',
-        text: 'Sleep',
-        uri: 'https://picsum.photos/id/10/200',
-      },
-
-      {
-        key: '3',
-        text: 'Anxiety',
-        uri: 'https://picsum.photos/id/1002/200',
-      },
-      {
-        key: '4',
-        text: 'Stress',
-        uri: 'https://picsum.photos/id/1006/200',
-      },
-      {
-        key: '5',
-        text: 'Relief',
-        uri: 'https://picsum.photos/id/1008/200',
-      },
-    ],
-  }
-];
 
 const styles = StyleSheet.create({
     mainbar: {
