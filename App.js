@@ -5,13 +5,15 @@ import {
   Text,
   View,
   SafeAreaView,
-  ImageBackground,
+  ActivityIndicator,
   FlatList,
   TouchableOpacity,
   PermissionsAndroid,
-  Modal
+  Modal,
+  Image
 } from 'react-native';
 
+import LinearGradient from 'react-native-linear-gradient'
 import MaterialIcons from 'react-native-vector-icons/dist/MaterialIcons';
 import AntDesign from 'react-native-vector-icons/dist/AntDesign';
 import AppPlayer from './utils/AppPlayer'
@@ -34,6 +36,8 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloadprogress, setDownloadProgress] = useState(0);
   const [item, setItem] = useState(track);
+  const [isBackgroundLoaded, setIsBackgroundLoaded] = useState(false);
+
   const insertRecord = (record) => new Promise((resolve) => {
     Database.insertRecord(record, res => {
       resolve(res)
@@ -133,33 +137,38 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
               console.log(err)
               setIsDownloading(false)
               setDownloadProgress(0)
-              alert("Download faild")
+              alert("Download faild" + JSON.stringify(err))
             })
           }).catch(err => {
             console.log(err)
             setIsDownloading(false)
             setDownloadProgress(0)
-            alert("Download faild")
+            alert("Download faild" + JSON.stringify(err))
           })
       }).catch(err => {
         console.log(err)
         setIsDownloading(false)
         setDownloadProgress(0)
-        alert("Download faild")
+        alert("Download faild" + JSON.stringify(err))
       })
     }).catch(err => {
       console.log(err)
       setIsDownloading(false)
       setDownloadProgress(0)
-      alert("Download faild")
+      alert("Download faild" + JSON.stringify(err))
     })
   }
+
+    console.log("setIsBackgroundLoaded", isBackgroundLoaded)
 
   
     return (
         <TouchableOpacity style={styles.itemImage} onPress={() => setSelectedTrack(item)}>
-                      <Modal visible={selectedTrack && selectedTrack.id === item.id}>
+          <View style={styles.itemContainer}>
+                      <Modal animationType="slide" visible={selectedTrack && selectedTrack.id === item.id}>
                       <TrackPlayer 
+                        animationIn="slideInUp" 
+                        animationOut="slideOutDown"
                         selectedTrack={{...selectedTrack, fromDb: item.fromDb}} 
                         setSelectedTrack={setSelectedTrack}
                         setIsDownloading={setIsDownloading}
@@ -168,7 +177,8 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
                         downloadprogress={downloadprogress}
                       />
             </Modal>
-            <ImageBackground style={{height: '100%', width: '100%'}} imageStyle={styles.itemImageBackground} source={{uri: item.bg_image}}>
+            <Image style={styles.itemImageBackground} source={{uri: item.bg_image}} onLoad={() => setIsBackgroundLoaded(true)}></Image>
+            {/* <ImageBackground style={{height: '100%', width: '100%'}} imageStyle={styles.itemImageBackground} source={{uri: item.bg_image}}> */}
                 <View style={styles.itemHeader}>
                     <View style={styles.itemHeaderDuration}>
                         <Text style={styles.itemHeaderDurationText}>
@@ -176,33 +186,32 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
                         </Text>
                     </View>
                     <View style={styles.itemHeaderActions}>
-                    {
-                    item.isFavorite ? (
-                        <AntDesign
-                        name="heart"
-                        size={24}
-                        color="#FF0000"
-                        style={styles.closeIcon}
-                        />
-                    ): (
-                        <AntDesign
-                        name="hearto"
-                        size={24}
-                        color="#e6e6e6"
-                        style={styles.closeIcon}
-                        />
-                    )
-                    }
+                      <TouchableOpacity style={styles.favoriteIcon}>
+                        {
+                        item.isFavorite ? (
+                            <AntDesign
+                            name="heart"
+                            size={20}
+                            color="#FF0000"
+                            />
+                        ): (
+                            <AntDesign
+                            name="hearto"
+                            size={20}
+                            color="#e6e6e6"
+                            />
+                        )
+                        }
+                        </TouchableOpacity>
                     {!item.fromDb ? <TouchableOpacity style={styles.downLoadIcon} onPress={!isDownloading ? downLoadFile: null}>
                       {
                         !isDownloading?(
                           <MaterialIcons
                           name="file-download"
-                          size={24}
-                          
+                          size={20}
                           color="#e6e6e6"
                       />
-                        ): <Text styles={{fontSize: 10}}>{Math.round(downloadprogress)}%</Text>
+                        ): <View><Text style={{color: 'white'}}>{Math.round(downloadprogress)}%</Text></View>
                       }
 
                     </TouchableOpacity>: false}
@@ -213,7 +222,11 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
                             {item.title}
                     </Text>
                 </View>
-            </ImageBackground>
+            {/* </ImageBackground> */}
+                {!isBackgroundLoaded ? <ActivityIndicator size="large" style={{position: 'absolute',top: '48%', left: '45%'}}/>: false}
+            </View>
+         
+         
          </TouchableOpacity>
     );
   };
@@ -249,7 +262,7 @@ export default () => {
                 "bg_image": "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Scenes.gif",
                 "scene": "https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3",
                 "scene_download": "https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3",
-                "scene_duration": "149"
+                "scene_duration": "52"
             },{
               "scene_id": item.category_name + 2,
               "title": "The Waterfall",
@@ -257,7 +270,7 @@ export default () => {
               "bg_image": "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Scenes.gif",
               "scene": "https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3",
               "scene_download": "https://www.yogapoint.com/mantras/bhajans/bhajan1.mp3",
-              "scene_duration": "149"
+              "scene_duration": "52"
           }
           ]
       }
@@ -338,7 +351,8 @@ export default () => {
   }, [])
   return (
       
-    <><View style={styles.container}>
+    <LinearGradient style={styles.container} colors={['#345DA7', '#3B8AC4', '#4BB4DE' ]}>
+      <View style={styles.container}>
       <SafeAreaView style={{ flex: 1, marginLeft: '3%',}}>
 
             <View style={styles.mainbar}>
@@ -361,6 +375,7 @@ export default () => {
             <View style={{ height: '60%', padding: 10, paddingRight: 0, paddingLeft: 0 }}>
                 <FlatList
                 horizontal
+                contentContainerStyle={{borderRadius: 6, overflow: 'hidden'}} 
                 data={stackTop.records ? [...stackTop.records]: []}
                 renderItem={({  item, index }) => <ListItem selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack} track={item} treeId={stackTop.treeId}/>}
                 showsHorizontalScrollIndicator={false}
@@ -370,7 +385,7 @@ export default () => {
             </View>
       </SafeAreaView>
     </View>
-        </>
+        </LinearGradient>
     
   );
 };
@@ -390,13 +405,24 @@ const styles = StyleSheet.create({
       },
       closeIcon: {
         marginLeft: '3%',
+
+      },
+      favoriteIcon: {
+        marginLeft: '3%',
+        color: 'white',
+        padding: 6,
+        borderRadius: 30,
+        backgroundColor: 'rgba(0,0,0,0.5)',
       },
       downLoadIcon: {
-        marginRight: '3%',
+        marginLeft: '3%',
+        color: 'white',
+        padding: 6,
+        borderRadius: 30,
+        backgroundColor: 'rgba(0,0,0,0.5)',
       },
   container: {
     flex: 1,
-    backgroundColor: '#8080ff',
   },
   categoryListContainer: {
       flex: 1,
@@ -430,12 +456,25 @@ const styles = StyleSheet.create({
   itemImage: {
     shadowColor: 'black',
     shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    shadowOpacity: 0.26,
+    elevation: 2,
+    borderRadius: 30,
+    width: 350,
+    marginLeft: 10,
+    overflow: 'hidden'
+  },
+  itemContainer: {
+    shadowColor: 'black',
+    shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
     shadowOpacity: 0.26,
     elevation: 2,
     borderRadius: 30,
     width: 350,
-    marginLeft: 10
+    position: "absolute",
+    height: '100%',
+    width: '100%',
   },
   itemImageBackground: {
     shadowColor: 'black',
@@ -443,8 +482,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOpacity: 0.26,
     borderRadius: 25,
-    width: 350, 
-    overlayColor: '#8080ff',
+    width: '100%',
+    height: '100%', 
     
   },
   itemHeader: {
@@ -453,6 +492,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'absolute',
+    top: 5
   },
   itemHeaderDuration: { 
     color: 'white',
@@ -460,7 +501,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: 'rgba(0,0,0,0.5)',
     height: 31,
-    width: 75,
+    minWidth: 75,
     margin: 10,
   },
   itemHeaderDurationText: {
@@ -475,7 +516,8 @@ const styles = StyleSheet.create({
     marginRight: 15
   },
   itemTitleContainer: {
-      marginTop: '80%'
+      bottom: 100,
+      position: 'relative',
   },
   itemTitle: {
     color: 'white',

@@ -3,16 +3,16 @@ import React, {useState, useEffect} from 'react';
 import {
   SafeAreaView,
   StyleSheet,
-  useColorScheme,
   Dimensions,
   Text,
-  ImageBackground,
+  ActivityIndicator,
   View,
   Image,
-  PermissionsAndroid,
   TouchableOpacity,
+  Modal
 } from 'react-native';
 
+import LinearGradient from 'react-native-linear-gradient'
 import MaterialIcons from 'react-native-vector-icons/dist/MaterialIcons';
 import Entypo from 'react-native-vector-icons/dist/Entypo';
 import Feather from 'react-native-vector-icons/dist/Feather';
@@ -21,12 +21,73 @@ import TrackPlayer, {RepeatMode} from 'react-native-track-player';
 import Slider from '@react-native-community/slider';
 import {useProgress} from 'react-native-track-player/lib/hooks';
 import AppPlayer from '../utils/AppPlayer'
-import Database from '../utils/database'
-import RNFS from 'react-native-fs';
-import {dirAudio, dirPictures} from '../utils/dirStorage'
 
 const Dev_Height = Dimensions.get('window').height;
 const Dev_Width = Dimensions.get('window').width;
+
+const LoopView = ({setShowRepeatModeOptions, setRepeatMode}) => {
+
+  const PROP = [
+    {
+      key: 1,
+      text: '15 Minutes',
+      value: 900 * 1000
+    },
+    {
+      key: 2,
+      text: '30 Minutes',
+      value: 1800 * 1000
+    },
+    {
+      key: 3,
+      text: '45 Minutes',
+      value: 2700 * 1000
+    },
+    {
+      key: 4,
+      text: '60 Minutes',
+      value: 3600 * 1000
+    },
+  ];
+  const [duration, setDuration] = useState(900 * 1000);
+  
+  return (<View>
+    <View style={styles.repeatOptionHeader}>
+      <Text style={styles.loopText}>
+        Loop
+      </Text>
+      <TouchableOpacity onPress={() => {
+        setShowRepeatModeOptions(false)
+        
+        }}>
+      <Entypo 
+        name="cross" 
+        color="#e6e6e6" 
+        size={40} 
+      />
+    </TouchableOpacity>
+
+    </View>
+    <View>
+    {PROP.map(res => {
+        return (
+            <View key={res.key} style={styles.optionsContainer}>
+                
+                <TouchableOpacity
+                    style={styles.radioCircle}
+                    onPress={() => {
+                      setShowRepeatModeOptions(false)
+                      setRepeatMode(duration)}}>
+                      {duration === res.value && <View style={styles.selectedRb} />}
+                </TouchableOpacity>
+                <Text style={styles.radioText}>{res.text}</Text>
+            </View>
+        );
+    })}
+    </View>
+  </View>)
+}
+
 
 const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLoadFile, downloadprogress}) => {
 
@@ -55,6 +116,9 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
   const [isPlayingInRepeatMode, setIsPlayingInRepeatMode] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [repeatModeInterval, setRepeatModeInterval] = useState(null);
+  const [showRepeatModeOptions, setShowRepeatModeOptions] = useState(false);
+  const [isBackgroundLoaded, setIsBackgroundLoaded] = useState(false);
+
 
   //the value of the slider should be between 0 and 1
   const [sliderValue, setSliderValue] = useState(0);
@@ -137,7 +201,7 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
     }
   };
 
-  const setRepeatMode = async () => {
+  const setRepeatMode = async (duration) => {
     if (isPlayingInRepeatMode) {
       setIsPlayingInRepeatMode(false);
       await TrackPlayer.setRepeatMode(RepeatMode.Off);
@@ -147,7 +211,7 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
       setRepeatModeInterval(setTimeout(async () => {
         setIsPlayingInRepeatMode(false);
         await TrackPlayer.setRepeatMode(RepeatMode.Off);
-      }, 5000))
+      }, duration))
       await TrackPlayer.setRepeatMode(RepeatMode.Track);
     }
   };
@@ -160,17 +224,24 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
   }
 
 
-  const insertRecord = (record) => new Promise((resolve) => {
-    Database.insertRecord(record, res => {
-      resolve(res)
-    })
-  })
-
   return (
     <SafeAreaView style={styles.contanier}>
-      <ImageBackground
+      {/* <ImageBackground
         source={{uri: track.img}}
-        style={styles.background}>
+        style={styles.background}> */}
+        <Modal  animationType="slide" visible={showRepeatModeOptions} style={{zIndex: 10}} transparent={true}>
+          <View style={styles.repeatOptions}>
+          <LinearGradient start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={styles.repeatOptionsGradient} colors={['#345DA7', '#3B8AC4', '#4BB4DE' ]}>
+
+            <LoopView 
+              setRepeatMode={setRepeatMode}
+              setShowRepeatModeOptions={setShowRepeatModeOptions}
+            />
+          </LinearGradient>
+          </View>
+        </Modal>
+        <Image style={styles.background} source={{uri: track.img}} onLoad={() => setIsBackgroundLoaded(true)}></Image>
+        {!isBackgroundLoaded ? <ActivityIndicator size="large" style={{position: 'absolute',top: '48%', left: '45%'}}/>: false}
         <View style={styles.mainbar}>
           <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
             <Entypo 
@@ -209,7 +280,7 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
         </View>
 
         <View style={styles.functions_view}>
-          <TouchableOpacity style={{flex: 1}} onPress={isTrackPlayerInit? setRepeatMode :null}>
+          <TouchableOpacity style={{flex: 1}} onPress={isTrackPlayerInit? isPlayingInRepeatMode ? setRepeatMode :() => setShowRepeatModeOptions(true) :null}>
             <Feather
               name="repeat"
               size={24}
@@ -267,7 +338,7 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
           </TouchableOpacity>
         </View>
         </View>
-      </ImageBackground>
+      {/* </ImageBackground> */}
     </SafeAreaView>
   );
 };
@@ -283,23 +354,18 @@ const styles = StyleSheet.create({
     position: 'absolute'
   },
   mainbar: {
-    height: '10%',
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'absolute',
+    top: 20
   },
   closeIcon: {
     marginLeft: '3%',
   },
   downLoadIcon: {
     marginRight: '3%',
-  },
-  music_logo_view: {
-    height: '30%',
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   image_view: {
     height: '100%',
@@ -308,16 +374,19 @@ const styles = StyleSheet.create({
   },
   trackActions: {
     backgroundColor:  'rgba(128,128,128,0.5)',
-    marginTop: '60%',
-    height: '100%',
     borderTopEndRadius: 10,
-    borderTopStartRadius: 10
-  },  
+    borderTopStartRadius: 10,
+    position: 'absolute',
+    top: '50%',
+    width: '100%',
+    height: '51%'
+  }, 
   name_of_song_View: {
     height: '15%',
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: '5%'
   },
   name_of_song_Text1: {
     color: '#e6e6e6',
@@ -333,6 +402,7 @@ const styles = StyleSheet.create({
     height: '10%',
     width: '100%',
     alignItems: 'center',
+    marginTop: '10%'
   },
   slider_time_view: {
     width: '100%',
@@ -352,52 +422,78 @@ const styles = StyleSheet.create({
   },
   functions_view: {
     flexDirection: 'row',
-    height: '20%',
     width: '100%',
     alignItems: 'center',
     margin: '5%',
-    // backgroundColor: 'red'
+    marginTop: '15%'
   },
-  recently_played_view: {
-    height: '25%',
-    width: '100%',
-  },
-  recently_played_text: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#808080',
-    marginLeft: '5%',
-    marginTop: '6%',
-  },
-  recently_played_list: {
-    backgroundColor: '#FFE3E3',
-    height: '50%',
-    width: '90%',
-    borderRadius: 10,
-    marginLeft: '5%',
-    marginTop: '5%',
+  repeatOptions: {
+    backgroundColor: 'white',
+    shadowColor: 'black',
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    shadowOpacity: 0.26,
+    elevation: 2,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    height: '33%',
     alignItems: 'center',
-    flexDirection: 'row'
-  },
-  recently_played_image: {
-    height: '80%',
-    width: '20%',
-    borderRadius: 10,
-  },
-  recently_played_list_text: {
-    height: '100%',
-    width: '60%',
     justifyContent: 'center',
+    position: 'absolute',
+    width: '100%',
+    bottom: 0
+    },
+    repeatOptionsGradient: {
+      borderTopLeftRadius: 10,
+      borderTopRightRadius: 10,
+      height: '100%',
+      width: '100%',
+    },
+    repeatOptionHeader: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 10
+    },
+    loopText: {
+      fontSize: 15,
+      color: 'white'
+    }, 
+    radioText: {
+      marginLeft: 10,
+      fontSize: 15,
+      color: 'white',
+      fontWeight: '700'
   },
-  recently_played_list_text1: {
-    fontSize: 15,
-    marginLeft: '8%',
+  optionsContainer: {
+    marginBottom: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+},
+radioCircle: {
+  height: 20,
+  width: 20,
+  borderRadius: 100,
+  borderWidth: 2,
+  borderColor: 'white',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginLeft: 10
+},
+selectedRb: {
+  width: 10,
+  height: 10,
+  borderRadius: 50,
+  backgroundColor: 'white',
   },
-  recently_played_list_text2: {
-    fontSize: 16,
-    color: '#808080',
-    marginLeft: '8%',
+  result: {
+      marginTop: 20,
+      color: 'white',
+      fontWeight: '600',
+      backgroundColor: '#F3FBFE',
   },
+    
 });
 
 export default TrackPlayerView;
