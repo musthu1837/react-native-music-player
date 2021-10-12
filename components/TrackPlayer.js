@@ -34,7 +34,7 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
   
   const track = {
     id: selectedTrack.scene_id,
-    url: 'https://www.chosic.com/wp-content/uploads/2021/07/The-Epic-Hero-Epic-Cinematic-Keys-of-Moon-Music.mp3',
+    url: selectedTrack.scene,
     title: selectedTrack.title,
     duration: Number(selectedTrack.scene_duration),
     img: selectedTrack.bg_image,
