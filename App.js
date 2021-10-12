@@ -16,7 +16,7 @@ import MaterialIcons from 'react-native-vector-icons/dist/MaterialIcons';
 import AntDesign from 'react-native-vector-icons/dist/AntDesign';
 import AppPlayer from './utils/AppPlayer'
 import Database from './utils/database'
-import TrackPlayer from './TrackPlayer';
+import TrackPlayer from './components/TrackPlayer';
 import RNFS from 'react-native-fs';
 import {dirAudio, dirPictures} from './utils/dirStorage'
 
@@ -29,9 +29,8 @@ const CategoryListItem = ({ item, index, popStack, fetchNewCategory}) => {
   );
 };
 
-const ListItem = ({ track, setSelectedTrack , selectedTrack}) => {
+const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
 
-  console.log("track::::::::::::::::::::::", track)
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloadprogress, setDownloadProgress] = useState(0);
   const [item, setItem] = useState(track);
@@ -51,8 +50,7 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack}) => {
 
   useEffect(() => {
     async function fetchData() {
-      const dbTrack = await getRecord(item.id);
-      console.log("tracktracktracktracktracktracktracktracktrack:",dbTrack)
+      const dbTrack = await getRecord(treeId + item.scene_id);
       const track =  dbTrack && dbTrack.data && dbTrack.data.length ? dbTrack.data[0]: {};
       setItem({...item, ...track, fromDb: dbTrack && dbTrack.data && dbTrack.data.length})
     }
@@ -78,23 +76,18 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack}) => {
 
     setIsDownloading(true);
     RNFS.mkdir(dirAudio).then((res) => {
-      console.log(" RNFS.mkdir Response \n", res);
-      const fileName1 = item.url.split('/');
-      const audioPath = dirAudio + '/' + fileName1.pop();
+      const fileName1 = treeId + item.scene_id + 0 + '.mp3';
+      console.log("fileName1", fileName1)
+      const audioPath = dirAudio + '/' + fileName1;
       RNFS.downloadFile({
-        fromUrl: item.url,
+        fromUrl: item.scene,
         toFile: audioPath,
         progressDivider: 10,
         background: true, 
         discretionary: true, 
-        cacheable: true, 
-        begin: (res) => {
-          console.log("Response begin ===\n\n");
-          console.log(res);
-        },
+        cacheable: true,
         progress: (res) => {
          //here you can calculate your progress for file download
-          console.log("Response written ===\n\n");
           let progressPercent = (res.bytesWritten / res.contentLength)*100; // to calculate in percentage
           console.log("\n\nprogress===",progressPercent)
           setDownloadProgress(progressPercent/2)
@@ -106,22 +99,18 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack}) => {
 
 
 
-          RNFS.mkdir(dirPictures).then((res) => {
-            console.log(" RNFS.mkdir Response \n", res);
-      
-            const fileName2 = item.img.split('/');
-            const gifPath = dirPictures + '/' + fileName2.pop();
+          RNFS.mkdir(dirPictures).then((res) => {      
+            const fileName2 = treeId + item.scene_id + 1 + '.gif';
+            const gifPath = dirPictures + '/' + fileName2;
+            console.log("fileName2", fileName2)
+
             RNFS.downloadFile({
-              fromUrl: item.img,
+              fromUrl: item.bg_image,
               toFile: gifPath,
               progressDivider: 10,
               background: true, 
               discretionary: true, 
-              cacheable: true, 
-              begin: (res) => {
-                console.log("Response begin ===\n\n");
-                console.log(res);
-              },
+              cacheable: true,
               progress: (res) => {
                //here you can calculate your progress for file download
                 console.log("Response written ===\n\n");
@@ -133,7 +122,7 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack}) => {
             }).promise.then(async res => {
                 console.log("res for saving file===", res);
                 // return RNFS.readFile(downloadfilePath, "base64");
-                let record = {id: item.id, title: item.title, url: 'file://' +  audioPath,img: 'file://' + gifPath, favorite: item.isFavorite};
+                let record = {id: treeId + item.scene_id, title: item.title, url: 'file://' +  audioPath,img: 'file://' + gifPath, favorite: item.isFavorite};
                 const rowsRes = await insertRecord(record);
 
                 console.log("inserted", rowsRes, record)
@@ -171,7 +160,7 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack}) => {
         <TouchableOpacity style={styles.itemImage} onPress={() => setSelectedTrack(item)}>
                       <Modal visible={selectedTrack && selectedTrack.id === item.id}>
                       <TrackPlayer 
-                        selectedTrack={selectedTrack} 
+                        selectedTrack={{...selectedTrack, fromDb: item.fromDb}} 
                         setSelectedTrack={setSelectedTrack}
                         setIsDownloading={setIsDownloading}
                         isDownloading={isDownloading}
@@ -279,6 +268,10 @@ export default () => {
       "category_name": item.category_name,
     }
 
+    const stackTop = getTopOfTheStack();
+    
+    res.data.treeId = stackTop.treeId + item.category_id;
+    console.log("New track tree id::::::::", res.data.treeId)
     categoryStack.push(res.data);
     setCategoryStack([...categoryStack]);
   }
@@ -290,12 +283,10 @@ export default () => {
 
   const popStack = () => {
     categoryStack.pop();
-    console.log("categoryStack", categoryStack)
     setCategoryStack([...categoryStack])
   }
   const stackTop = getTopOfTheStack();
 
-  console.log("stackTop.records:", stackTop.records)
   useEffect( () => {
     new Promise((resolve) => {
       Database.initDB(res => {
@@ -339,6 +330,8 @@ export default () => {
         "category_id": 0,
         "category_name": "All",
       }
+
+      res.data.treeId = 0;
       categoryStack.push(res.data);
       setCategoryStack([...categoryStack]);
     })
@@ -369,7 +362,7 @@ export default () => {
                 <FlatList
                 horizontal
                 data={stackTop.records ? [...stackTop.records]: []}
-                renderItem={({  item, index }) => <ListItem selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack} track={item} />}
+                renderItem={({  item, index }) => <ListItem selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack} track={item} treeId={stackTop.treeId}/>}
                 showsHorizontalScrollIndicator={false}
                 keyExtractor = {(item) => item.scene_id}
                 contentContainerStyle={{marginTop: 0}}

@@ -34,11 +34,11 @@ export default {
 
     getTrack(id, cb) {
         db.transaction((txn) => {
-            console.log("get query")
+            console.log("get query", id)
                 let query = "SELECT * FROM tracks WHERE id=?"
                 txn.executeSql(query, [id],
                     function (tx, result) {
-                        // console.log("get query success", result.rows._array)
+                        console.log("get query success", result.rows._array)
                             cb({data: result.rows._array});
                     },
                     function (err) {

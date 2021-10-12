@@ -20,18 +20,26 @@ import AntDesign from 'react-native-vector-icons/dist/AntDesign';
 import TrackPlayer, {RepeatMode} from 'react-native-track-player';
 import Slider from '@react-native-community/slider';
 import {useProgress} from 'react-native-track-player/lib/hooks';
-import AppPlayer from './utils/AppPlayer'
-import Database from './utils/database'
+import AppPlayer from '../utils/AppPlayer'
+import Database from '../utils/database'
 import RNFS from 'react-native-fs';
-import {dirAudio, dirPictures} from './utils/dirStorage'
+import {dirAudio, dirPictures} from '../utils/dirStorage'
 
 const Dev_Height = Dimensions.get('window').height;
 const Dev_Width = Dimensions.get('window').width;
 
 const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLoadFile, downloadprogress}) => {
 
-  console.log("Inside TrackPlayerView", selectedTrack)
-  const track = selectedTrack;
+  console.log("Inside TrackPlayerView", selectedTrack);
+  
+  const track = {
+    id: selectedTrack.scene_id,
+    url: 'https://www.chosic.com/wp-content/uploads/2021/07/The-Epic-Hero-Epic-Cinematic-Keys-of-Moon-Music.mp3',
+    title: selectedTrack.title,
+    duration: Number(selectedTrack.scene_duration),
+    img: selectedTrack.bg_image,
+    fromDb: selectedTrack.fromDb
+  };
   const trackPlayerInit = async () => {
     await TrackPlayer.updateOptions({
       stopWithApp: true, // false=> music continues in background even when app is closed
