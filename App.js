@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   PermissionsAndroid,
   Modal,
-  Image
+  Image,
 } from 'react-native';
 
 import LinearGradient from 'react-native-linear-gradient'
@@ -22,16 +22,30 @@ import TrackPlayer from './components/TrackPlayer';
 import RNFS from 'react-native-fs';
 import {dirAudio, dirPictures} from './utils/dirStorage'
 
-const CategoryListItem = ({ item, index, popStack, fetchNewCategory}) => {
+const CategoryListItem = ({ item, index, popStack, fetchNewCategory, treeId}) => {
+  console.log("item.treeId", treeId)
   return (
-    // <TouchableOpacity onPress={() => setSelectedCategory(item.key)} >
-    <TouchableOpacity onPress={index === 0?popStack:() => fetchNewCategory(item)}  style={index === 0? {...styles.item, ...{backgroundColor: '#33cccc'}}: styles.item}>
-      <Text style={styles.itemText}>{item.category_name}</Text>
-    </TouchableOpacity>
-  );
+    index === 0 ?
+    (<TouchableOpacity style={{...styles.item, backgroundColor: '#4BB4DE'}} onPress={
+      index === 0
+      ? treeId !== 0 ? popStack: null
+      :() => fetchNewCategory(item)}  >
+        <Text style={styles.itemText}>{item.category_name}</Text>
+      </TouchableOpacity>)
+    :(<LinearGradient start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={styles.item} colors={['#19232F', '#363F4A' ]}> 
+        <TouchableOpacity onPress={
+            index === 0
+            ? popStack
+            :() => fetchNewCategory(item)}>
+          <View>
+            <Text style={styles.itemText}>{item.category_name}</Text>
+          </View>
+        </TouchableOpacity>
+    </LinearGradient>)
+);
 };
 
-const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
+const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId, selectedTab}) => {
 
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloadprogress, setDownloadProgress] = useState(0);
@@ -143,7 +157,7 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
             console.log(err)
             setIsDownloading(false)
             setDownloadProgress(0)
-            alert("Download faild" + JSON.stringify(err))
+            alert("Download faild" + dirPictures + JSON.stringify(err))
           })
       }).catch(err => {
         console.log(err)
@@ -163,7 +177,7 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
 
   
     return (
-        <TouchableOpacity style={styles.itemImage} onPress={() => setSelectedTrack(item)}>
+        <TouchableOpacity style={selectedTab === "Scenes" ? {...styles.itemImage, height: undefined, marginRight: 10, marginLeft: 10}: {...styles.itemImage, width: '100%', marginTop: 10} } onPress={() => setSelectedTrack(item)}>
           <View style={styles.itemContainer}>
                       <Modal animationType="slide" visible={selectedTrack && selectedTrack.id === item.id}>
                       <TrackPlayer 
@@ -221,6 +235,9 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
                     <Text style={styles.itemTitle}>
                             {item.title}
                     </Text>
+                    <Text style={styles.description}>
+                            {item.description}
+                    </Text>
                 </View>
             {/* </ImageBackground> */}
                 {!isBackgroundLoaded ? <ActivityIndicator size="large" style={{position: 'absolute',top: '48%', left: '45%'}}/>: false}
@@ -234,6 +251,8 @@ const ListItem = ({ track, setSelectedTrack , selectedTrack, treeId}) => {
 export default () => {
     const [categoryStack, setCategoryStack] = useState([]);
     const [selectedTrack, setSelectedTrack] = useState(null);
+    const [selectedTab, setSelectedTab] = useState("Scenes");
+
 
   const fetchNewCategory = (item) => {
     const res = {
@@ -333,7 +352,7 @@ export default () => {
                     "bg_image": "http://booking.techcarrot.ae/wp-content/uploads/2021/09/Meditation-Man.gif",
                     "scene": "http://booking.techcarrot.ae/wp-content/uploads/2021/10/test-audio.mp3",
                     "scene_download": "http://booking.techcarrot.ae/wp-content/uploads/2021/10/test-audio.mp3",
-                    "scene_duration": "32"
+                    "scene_duration": "27"
                 }
             ]
         }
@@ -362,26 +381,52 @@ export default () => {
                     size={35} 
                     style={styles.closeIcon}
                 />
-                <Text style={styles.menubarTitle}>Meditation</Text>
+                <Text style={styles.menubarTitle}>{selectedTab}</Text>
             </View>
             <View>
                 <FlatList
                 horizontal
                 data={stackTop.parent && stackTop.categories ? [stackTop.parent, ...stackTop.categories]: []}
-                renderItem={({ item, index }) => <CategoryListItem fetchNewCategory={fetchNewCategory} item={item} index={index} popStack={popStack}/>}
+                renderItem={({ item, index }) => <CategoryListItem fetchNewCategory={fetchNewCategory} item={item} index={index} popStack={popStack} treeId={stackTop.treeId}/>}
                 showsHorizontalScrollIndicator={false}
                 />
             </View>
-            <View style={{ height: '60%', padding: 10, paddingRight: 0, paddingLeft: 0 }}>
+            {  selectedTab === "Scenes" ? (
+            <View style={{height: '60%', marginTop: 10}}>
+            <FlatList
+            horizontal
+            contentContainerStyle={{borderRadius: 6, overflow: 'hidden'}} 
+            data={stackTop.records ? [...stackTop.records]: []}
+            renderItem={({  item, index }) => <ListItem selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack} track={item} treeId={stackTop.treeId} selectedTab={selectedTab}/>}
+            showsHorizontalScrollIndicator={false}
+            keyExtractor = {(item) => item.scene_id}
+
+            />
+        </View>
+            ): (
+              <View style={{height: '70%',marginLeft: 10, marginRight: 20}}>
                 <FlatList
-                horizontal
-                contentContainerStyle={{borderRadius: 6, overflow: 'hidden'}} 
-                data={stackTop.records ? [...stackTop.records]: []}
-                renderItem={({  item, index }) => <ListItem selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack} track={item} treeId={stackTop.treeId}/>}
-                showsHorizontalScrollIndicator={false}
-                keyExtractor = {(item) => item.scene_id}
-                contentContainerStyle={{marginTop: 0}}
-                />
+              contentContainerStyle={{borderRadius: 6, overflow: 'hidden'}} 
+              data={stackTop.records ? [...stackTop.records]: []}
+              renderItem={({  item, index }) => <ListItem selectedTrack={selectedTrack} setSelectedTrack={setSelectedTrack} track={item} treeId={stackTop.treeId} selectedTab={selectedTab}/>}
+              showsVerticalScrollIndicator={false}
+              keyExtractor = {(item) => item.scene_id}
+              />
+              </View>
+            )
+
+            }
+
+
+            <View style={{justifyContent: 'space-between', flexDirection: 'row'}}>
+            <TouchableOpacity onPress={() => setSelectedTab("Scenes")}>
+                <Text>Scenes</Text>
+
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setSelectedTab("Meditation")}>
+                <Text>Meditation</Text>
+
+              </TouchableOpacity>
             </View>
       </SafeAreaView>
     </View>
@@ -456,13 +501,13 @@ const styles = StyleSheet.create({
   itemImage: {
     shadowColor: 'black',
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
+    shadowRadius: 6,
     shadowOpacity: 0.26,
     elevation: 2,
     borderRadius: 30,
     width: 350,
-    marginLeft: 10,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    height: 250,
   },
   itemContainer: {
     shadowColor: 'black',
@@ -481,7 +526,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
     shadowOpacity: 0.26,
-    borderRadius: 25,
+    borderRadius: 30,
     width: '100%',
     height: '100%', 
     
@@ -524,5 +569,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 20,
     fontSize: 25
+  },
+  description: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 20,
+    fontSize: 15
   }
 });

@@ -17,9 +17,9 @@ import MaterialIcons from 'react-native-vector-icons/dist/MaterialIcons';
 import Entypo from 'react-native-vector-icons/dist/Entypo';
 import Feather from 'react-native-vector-icons/dist/Feather';
 import AntDesign from 'react-native-vector-icons/dist/AntDesign';
-import TrackPlayer, {RepeatMode} from 'react-native-track-player';
+import TrackPlayer, {RepeatMode, TrackPlayerEvents, STATE_PLAYING} from 'react-native-track-player';
 import Slider from '@react-native-community/slider';
-import {useProgress} from 'react-native-track-player/lib/hooks';
+import {useTrackPlayerProgress, useTrackPlayerEvents} from 'react-native-track-player/lib/hooks';
 import AppPlayer from '../utils/AppPlayer'
 
 const Dev_Height = Dimensions.get('window').height;
@@ -62,7 +62,7 @@ const LoopView = ({setShowRepeatModeOptions, setRepeatMode}) => {
         }}>
       <Entypo 
         name="cross" 
-        color="#e6e6e6" 
+        color="white" 
         size={40} 
       />
     </TouchableOpacity>
@@ -99,12 +99,18 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
     title: selectedTrack.title,
     duration: Number(selectedTrack.scene_duration),
     img: selectedTrack.bg_image,
-    fromDb: selectedTrack.fromDb
+    fromDb: selectedTrack.fromDb,
+    artwork: selectedTrack.bg_image
   };
   const trackPlayerInit = async () => {
     await TrackPlayer.updateOptions({
       stopWithApp: true, // false=> music continues in background even when app is closed
       // Media controls capabilities
+      capabilities: [
+        TrackPlayer.CAPABILITY_PLAY,
+        TrackPlayer.CAPABILITY_PAUSE,
+      ],
+   
   });
     await TrackPlayer.setupPlayer();
     await TrackPlayer.add(track);
@@ -128,7 +134,7 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
 
   //useTrackPlayerProgress is a hook which provides the current position and duration of the track player.
   //These values will update every 250ms 
-  const {position, duration} = useProgress(250);
+  const {position, duration} = useTrackPlayerProgress(250);
   
    //initialize the TrackPlayer when the App component is mounted
   useEffect(() => {
@@ -148,6 +154,27 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
     }
   }, [position, duration]);
 
+  useTrackPlayerEvents([TrackPlayerEvents.REMOTE_DUCK], event => {
+    console.log("TrackPlayerEvents.REMOTE_DUCK::::::::::::::::::::;", event)
+    if (event.paused) {
+      setIsPlaying(false);
+    } else {
+      setIsPlaying(true);
+    }
+  });
+
+
+    useTrackPlayerEvents([TrackPlayerEvents.REMOTE_PLAY], event => setIsPlaying(true));
+    useTrackPlayerEvents([TrackPlayerEvents.REMOTE_PAUSE], event => setIsPlaying(false));
+
+
+  // useTrackPlayerEvents([TrackPlayerEvents.PLAYBACK_STATE], event => {
+  //   if (event.state === STATE_PLAYING) {
+  //     setIsPlaying(true);
+  //   } else {
+  //     setIsPlaying(false);
+  //   }
+  // });
 
   //this function is called when the user starts to slide the seekbar
   const slidingStarted = () => {
@@ -223,6 +250,10 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
     setSelectedTrack(null);
   }
 
+  const getTime = () => {
+    const dateArray = new Date().toString().split(" ")
+    return `${dateArray[2]} ${dateArray[1]} ${dateArray[3]} ${AppPlayer.tConv24(dateArray[4])}`
+  }
 
   return (
     <SafeAreaView style={styles.contanier}>
@@ -240,13 +271,13 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
           </LinearGradient>
           </View>
         </Modal>
-        <Image style={styles.background} source={{uri: track.img}} onLoad={() => setIsBackgroundLoaded(true)}></Image>
+        <Image blurRadius={10} style={styles.background} source={{uri: track.img}} onLoad={() => setIsBackgroundLoaded(true)}></Image>
         {!isBackgroundLoaded ? <ActivityIndicator size="large" style={{position: 'absolute',top: '48%', left: '45%'}}/>: false}
         <View style={styles.mainbar}>
           <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
             <Entypo 
               name="cross" 
-              color="#e6e6e6" 
+              color="white" 
               size={40} 
             />
           </TouchableOpacity>
@@ -254,22 +285,22 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
           {!isDownloading ?(<MaterialIcons
               name="file-download"
               size={40}
-              color="#e6e6e6"
+              color="white"
             />): <Text styles={{fontSize: 10}}>{Math.round(downloadprogress)}%</Text>}
           </TouchableOpacity>: (false)}
         </View>
         <View style={styles.trackActions}>
         <View style={styles.name_of_song_View}>
           <Text style={styles.name_of_song_Text1}>{track.title}</Text>
-          <Text style={styles.name_of_song_Text2}>7 Oct 2021 11:39 PM</Text>
+          <Text style={styles.name_of_song_Text2}>{getTime()}</Text>
         </View>
         <View style={styles.slider_view}>
           <Slider
             style={styles.slider_style}
-            minimumTrackTintColor="#33cccc"
-            maximumTrackTintColor="#e6e6e6"
+            minimumTrackTintColor="#4BB4DE"
+            maximumTrackTintColor="white"
             onSlidingStart={slidingStarted}
-            thumbTintColor="#33cccc"
+            thumbTintColor="#4BB4DE"
             onSlidingComplete={slidingCompleted}
             value={sliderValue}
           />
@@ -284,30 +315,31 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
             <Feather
               name="repeat"
               size={24}
-              color= {isPlayingInRepeatMode ? "#FF0000":"#e6e6e6"}/>
+              color= {isPlayingInRepeatMode ? "#FF0000":"white"}/>
           </TouchableOpacity>
           <TouchableOpacity style={{flex: 1, marginLeft: 10}} onPress={isTrackPlayerInit? jumpBackward :null}>
             <AntDesign
               name="stepbackward"
               size={24}
-              color="#e6e6e6"
+              color="white"
               />
           </TouchableOpacity>
           <TouchableOpacity
-            style={{flex: 1, flex: 1, marginRight: 50, backgroundColor: '#33cccc', borderRadius: 100, height: 70, width: 80, alignItems: 'center', justifyContent: 'center'}}
+            style={{marginRight: 50, backgroundColor: '#4BB4DE', alignItems: 'center', justifyContent: 'center', height: 70, width: 70, borderRadius: 100}}
             onPress={isTrackPlayerInit? handlePlayAndPause :null}>
               {
                 isPlaying ? (
                   <Entypo
                   name="controller-paus"
                   size={40}
-                  color="#e6e6e6"
+                  color="white"
                   />
                 ) : (
                   <Entypo
                   name="controller-play"
                   size={45}
-                  color="#e6e6e6"
+                  color="white"
+                  style={{marginLeft: '10%'}}
                   />
                 )
               }
@@ -316,7 +348,7 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
             <AntDesign
               name="stepforward"
               size={24}
-              color="#e6e6e6"
+              color="white"
               />
           </TouchableOpacity>
           <TouchableOpacity style={{flex: 1}} onPress={() => setIsFavorite(!isFavorite)}>
@@ -331,7 +363,7 @@ const TrackPlayerView = ({selectedTrack, setSelectedTrack, isDownloading, downLo
                 <AntDesign
                 name="hearto"
                 size={24}
-                color="#e6e6e6"
+                color="white"
                 />
               )
             }
@@ -389,12 +421,12 @@ const styles = StyleSheet.create({
     marginTop: '5%'
   },
   name_of_song_Text1: {
-    color: '#e6e6e6',
+    color: 'white',
     fontSize: 30,
     fontWeight: '500',
   },
   name_of_song_Text2: {
-    color: '#e6e6e6',
+    color: 'white',
     fontSize: 15,
     marginTop: '4%',
   },
@@ -413,7 +445,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginLeft: '7%',
     marginRight: '7%',
-    color: '#e6e6e6',
+    color: 'white',
   },
   slider_style: {
     height: '70%',

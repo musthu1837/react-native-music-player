@@ -30,26 +30,36 @@ class AppPlayer {
         }
     };
 
-static secondsToHHMMSS = (seconds) => {
-    // credits - https://stackoverflow.com/a/37096512
-    seconds = Number(seconds);
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor((seconds % 3600) % 60);
+    static secondsToHHMMSS = (seconds) => {
+        // credits - https://stackoverflow.com/a/37096512
+        seconds = Number(seconds);
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor((seconds % 3600) % 60);
 
-    const hrs = h > 0 ? (h < 10 ? `0${h}:` : `${h}:`) : '';
-    const mins = m > 0 ? (m < 10 ? `0${m}:` : `${m}:`) : '00:';
-    const scnds = s > 0 ? (s < 10 ? `0${s}` : s) : '00';
-    return `${hrs}${mins}${scnds}`;
-};
+        const hrs = h > 0 ? (h < 10 ? `0${h}:` : `${h}:`) : '';
+        const mins = m > 0 ? (m < 10 ? `0${m}:` : `${m}:`) : '00:';
+        const scnds = s > 0 ? (s < 10 ? `0${s}` : s) : '00';
+        return `${hrs}${mins}${scnds}`;
+    };
 
-static fromMMSSToSeconds = (mmss) => {
-    // credits - https://stackoverflow.com/a/37096512
-    const timeComponent  = mmss && mmss.split(":");
-    const m = isNaN(timeComponent[0]) ? 0: Number(timeComponent[0]);
-    const s = isNaN(timeComponent[1]) ? 0: Number(timeComponent[1]);
-    return (m*60) + s;
-};
+    static fromMMSSToSeconds = (mmss) => {
+        // credits - https://stackoverflow.com/a/37096512
+        const timeComponent  = mmss && mmss.split(":");
+        const m = isNaN(timeComponent[0]) ? 0: Number(timeComponent[0]);
+        const s = isNaN(timeComponent[1]) ? 0: Number(timeComponent[1]);
+        return (m*60) + s;
+    };
+
+    static  tConv24 = (time24) => {
+        var ts = time24;
+        var H = +ts.substr(0, 2);
+        var h = (H % 12) || 12;
+        h = (h < 10)?("0"+h):h;  // leading 0 at the left for 1 digit hours
+        var ampm = H < 12 ? " AM" : " PM";
+        ts = h + ts.substr(2, 3) + ampm;
+        return ts;
+      };
 }
 
 export default AppPlayer;
